@@ -1,0 +1,65 @@
+<!-- dashboard.html -->
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8" />
+  <title>Dashboard</title>
+</head>
+<body>
+  <h2>Bem-vindo</h2>
+  <h3>Os teus grupos:</h3>
+  <ul id="group-list"></ul>
+
+  <h4>Criar novo grupo:</h4>
+  <input type="text" id="new-group-name" placeholder="Nome do grupo" />
+  <button onclick="createGroup()">Criar</button>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+
+  <script>
+    const auth = firebase.auth();
+    const groupList = document.getElementById("group-list");
+
+    auth.onAuthStateChanged(user => {
+      if (!user) {
+        window.location.href = "index.html";
+        return;
+      }
+
+      // Obter grupos do utilizador
+      db.collection("groups").where("members", "array-contains", user.uid)
+        .onSnapshot(snapshot => {
+          groupList.innerHTML = "";
+          snapshot.forEach(doc => {
+            const group = doc.data();
+            const li = document.createElement("li");
+            const btn = document.createElement("button");
+            btn.textContent = group.name;
+            btn.onclick = () => {
+              localStorage.setItem("currentGroupId", doc.id);
+              window.location.href = "group.html";
+            };
+            li.appendChild(btn);
+            groupList.appendChild(li);
+          });
+        });
+    });
+
+    function createGroup() {
+      const name = document.getElementById("new-group-name").value;
+      const user = auth.currentUser;
+      if (!name) return alert("Insere o nome do grupo");
+
+      db.collection("groups").add({
+        name,
+        members: [user.uid]
+      }).then(() => {
+        document.getElementById("new-group-name").value = "";
+      });
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <title>Grupo</title>
+</head>
+<body>
+  <h2 id="group-name">Grupo</h2>
+
+  <h3>Membros do Grupo</h3>
+  <ul id="members-list"></ul>
+
+  <input type="email" id="new-member-email" placeholder="Email do novo membro" />
+  <button id="add-member-btn">Adicionar Membro</button>
+
+  <h3>Despesas</h3>
+  <ul id="expenses-list"></ul>
+
+  <h3>Nova Despesa</h3>
+  <input type="text" id="expense-title" placeholder="Título da despesa"><br>
+  <input type="number" id="expense-amount" placeholder="Valor"><br>
+
+  <label>Quem pagou:</label>
+  <select id="paid-by"></select><br>
+
+  <label>Dividir com:</label><br>
+  <div id="members-checkboxes"></div>
+
+  <button onclick="addExpense()">Adicionar</button>
+
+  <h3>Saldos dos Membros</h3>
+  <ul id="balance-list"></ul>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+
+  <script>
+    const auth = firebase.auth();
+
+    const groupId = localStorage.getItem("currentGroupId");
+    const groupNameEl = document.getElementById("group-name");
+    const expensesList = document.getElementById("expenses-list");
+    const paidBySelect = document.getElementById("paid-by");
+    const membersList = document.getElementById("members-list");
+    const membersCheckboxes = document.getElementById("members-checkboxes");
+
+    let groupMembers = [];
+
+    auth.onAuthStateChanged(user => {
+      if (!user) {
+        window.location.href = "index.html";
+        return;
+      }
+
+      const groupRef = db.collection("groups").doc(groupId);
+
+      // Carregar dados do grupo
+      groupRef.get().then(doc => {
+        const group = doc.data();
+        groupNameEl.textContent = group.name;
+        groupMembers = group.members || [];
+
+        // Atualizar UI de membros
+        membersList.innerHTML = "";
+        paidBySelect.innerHTML = "";
+        membersCheckboxes.innerHTML = "";
+
+        groupMembers.forEach(uid => {
+          db.collection("users").doc(uid).get().then(userDoc => {
+            const userData = userDoc.data();
+            const displayName = userData.nickname || userData.email;
+
+            // Lista de membros
+            const li = document.createElement("li");
+            li.textContent = displayName;
+            membersList.appendChild(li);
+
+            // Seleção "quem pagou"
+            const option = document.createElement("option");
+            option.value = uid;
+            option.textContent = displayName;
+            paidBySelect.appendChild(option);
+
+            // Checkboxes "dividir com"
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.value = uid;
+            checkbox.id = `member-${uid}`;
+
+            const label = document.createElement("label");
+            label.htmlFor = checkbox.id;
+            label.textContent = displayName;
+
+            membersCheckboxes.appendChild(checkbox);
+            membersCheckboxes.appendChild(label);
+            membersCheckboxes.appendChild(document.createElement("br"));
+          });
+        });
+      });
+
+        // Despesas em tempo real
+        db.collection("groups").doc(groupId).collection("expenses")
+        .orderBy("timestamp", "desc")
+        .onSnapshot(snapshot => {
+            expensesList.innerHTML = "";
+            snapshot.forEach(doc => {
+            const data = doc.data();
+
+            // Buscar dados do utilizador que pagou
+            db.collection("users").doc(data.paidBy).get().then(userDoc => {
+                const userData = userDoc.data();
+                const displayName = userData.nickname || userData.email;
+
+                const li = document.createElement("li");
+                li.textContent = `${data.title} - €${data.amount} (Pago por ${displayName}, dividido com ${data.splitBetween.length} pessoas)`;
+                expensesList.appendChild(li);
+            });
+            });
+
+            // Recalcular saldos
+            calcularSaldos();
+        });
+
+      // Adicionar despesa
+      window.addExpense = () => {
+        const title = document.getElementById("expense-title").value;
+        const amount = parseFloat(document.getElementById("expense-amount").value);
+        const paidBy = paidBySelect.value;
+        const splitBetween = Array.from(membersCheckboxes.querySelectorAll("input:checked")).map(cb => cb.value);
+
+        if (!title || !amount || !paidBy || splitBetween.length === 0) {
+          alert("Preenche todos os campos");
+          return;
+        }
+
+        db.collection("groups").doc(groupId).collection("expenses").add({
+          title,
+          amount,
+          paidBy,
+          splitBetween,
+          timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        document.getElementById("expense-title").value = "";
+        document.getElementById("expense-amount").value = "";
+      };
+
+      // Adicionar membro por email
+      document.getElementById("add-member-btn").addEventListener("click", () => {
+        const email = document.getElementById("new-member-email").value.trim();
+        if (!email) return alert("Introduz um email válido");
+
+        db.collection("users").where("email", "==", email).get()
+          .then(snapshot => {
+            if (snapshot.empty) {
+              alert("Utilizador não encontrado.");
+              return;
+            }
+
+            const userDoc = snapshot.docs[0];
+            const uid = userDoc.id;
+
+            if (groupMembers.includes(uid)) {
+              alert("Este utilizador já está no grupo.");
+              return;
+            }
+
+            return groupRef.update({
+              members: firebase.firestore.FieldValue.arrayUnion(uid)
+            }).then(() => {
+              alert("Membro adicionado com sucesso.");
+              window.location.reload(); // recarrega para atualizar UI
+            });
+          })
+          .catch(err => {
+            console.error("Erro ao adicionar membro:", err);
+            alert("Erro ao adicionar membro.");
+          });
+      });
+    });
+
+    function calcularSaldos() {
+      const saldos = {};
+      groupMembers.forEach(uid => saldos[uid] = 0);
+
+      db.collection("groups").doc(groupId).collection("expenses").get()
+        .then(snapshot => {
+          snapshot.forEach(doc => {
+            const despesa = doc.data();
+            const valorPorPessoa = despesa.amount / despesa.splitBetween.length;
+
+            saldos[despesa.paidBy] += despesa.amount;
+
+            despesa.splitBetween.forEach(uid => {
+              saldos[uid] -= valorPorPessoa;
+            });
+          });
+
+          const balanceList = document.getElementById("balance-list");
+          balanceList.innerHTML = "";
+
+          for (const [uid, saldo] of Object.entries(saldos)) {
+            db.collection("users").doc(uid).get().then(doc => {
+              const nome = doc.data().nickname || doc.data().email;
+              const li = document.createElement("li");
+              li.textContent = `${nome}: ${saldo.toFixed(2)} €`;
+              balanceList.appendChild(li);
+            });
+          }
+        });
+    }
+  </script>
+</body>
+</html>
