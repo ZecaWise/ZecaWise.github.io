@@ -14,14 +14,15 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Criar firebase-config.js a partir do segredo
-        run: echo "${{ secrets.FIREBASE_CONFIG }}" > firebase-config.js
-
-      # (Opcional) Se tiveres dependências para compilar ou minificar
-      # - name: Instalar dependências
-      #   run: npm install
+        run: |
+          echo "const firebaseConfig = $FIREBASE_CONFIG;" > firebase-config.js
+          echo "firebase.initializeApp(firebaseConfig);" >> firebase-config.js
+          echo "const db = firebase.firestore();" >> firebase-config.js
+        env:
+          FIREBASE_CONFIG: ${{ secrets.FIREBASE_CONFIG }}
 
       - name: Deploy para GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: .  # ← Publicar a raiz do repositório
+          publish_dir: .  # ou ./dist se usares build
