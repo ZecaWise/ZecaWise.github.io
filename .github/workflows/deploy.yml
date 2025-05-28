@@ -21,6 +21,10 @@ jobs:
         env:
           FIREBASE_CONFIG: ${{ secrets.FIREBASE_CONFIG }}
 
+      - name: Verificar firebase-config.js
+        run: |
+          cat firebase-config.js
+
       - name: Deploy para GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
