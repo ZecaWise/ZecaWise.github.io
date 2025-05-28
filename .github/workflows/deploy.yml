@@ -3,7 +3,7 @@ name: Deploy para GitHub Pages com segredo
 on:
   push:
     branches:
-      - main  # ← só ativa quando fizeres push no branch main
+      - main
 
 jobs:
   build-and-deploy:
@@ -16,14 +16,12 @@ jobs:
       - name: Criar firebase-config.js a partir do segredo
         run: echo "${{ secrets.FIREBASE_CONFIG }}" > firebase-config.js
 
-      - name: Instalar dependências
-        run: npm install
-
-      - name: Build do site
-        run: npm run build
+      # (Opcional) Se tiveres dependências para compilar ou minificar
+      # - name: Instalar dependências
+      #   run: npm install
 
       - name: Deploy para GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist  # ← muda para ./build se usares Create React App
+          publish_dir: .  # ← Publicar a raiz do repositório
