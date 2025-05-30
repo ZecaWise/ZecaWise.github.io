@@ -214,28 +214,35 @@
         });
       });
 
-        // Despesas em tempo real
-        db.collection("groups").doc(groupId).collection("expenses")
-        .orderBy("timestamp", "desc")
-        .onSnapshot(snapshot => {
-            expensesList.innerHTML = "";
-            snapshot.forEach(doc => {
-            const data = doc.data();
+// Despesas em tempo real
+db.collection("groups").doc(groupId).collection("expenses")
+  .orderBy("timestamp", "desc")
+  .onSnapshot(snapshot => {
+    expensesList.innerHTML = "";
+    snapshot.forEach(doc => {
+      const data = doc.data();
 
-            // Buscar dados do utilizador que pagou
-            db.collection("users").doc(data.paidBy).get().then(userDoc => {
-                const userData = userDoc.data();
-                const displayName = userData.nickname || userData.email;
+      // Buscar dados do utilizador que pagou
+      db.collection("users").doc(data.paidBy).get().then(userDoc => {
+        const userData = userDoc.data();
+        const displayName = userData.nickname || userData.email;
 
-                const li = document.createElement("li");
-                li.textContent = `${data.title} - €${data.amount} (Pago por ${displayName}, dividido com ${data.splitBetween.length} pessoas)`;
-                expensesList.appendChild(li);
-            });
-            });
+        const li = document.createElement("li");
+        li.textContent = `${data.title} - €${data.amount} (Pago por ${displayName}, dividido com ${data.splitBetween.length} pessoas)`;
 
-            // Recalcular saldos
-            calcularSaldos();
+        // 🔗 Torna a despesa clicável
+        li.style.cursor = "pointer";
+        li.addEventListener("click", () => {
+          window.location.href = `detalhe.html?id=${doc.id}&groupId=${groupId}`;
         });
+
+        expensesList.appendChild(li);
+      });
+    });
+
+    // Recalcular saldos
+    calcularSaldos();
+  });
 
       // Adicionar despesa
       window.addExpense = () => {
@@ -295,6 +302,7 @@
       });
     });
 
+    
     function calcularSaldos() {
       const saldos = {};
       groupMembers.forEach(uid => saldos[uid] = 0);

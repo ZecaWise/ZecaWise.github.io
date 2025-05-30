@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8" />
+  <title>Detalhes da Despesa</title>
+  <style>
+label {
+  display: block;
+  margin-top: 10px;
+  font-weight: bold;
+}
+
+input, button {
+  padding: 8px;
+  font-size: 1em;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 5px;
+}
+
+button {
+  margin-top: 15px;
+  cursor: pointer;
+}
+
+#detalhes {
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  max-width: 500px;
+}
+
+.participantes-container {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding-left: 0;
+}
+
+.participantes-container label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-start;
+  font-weight: normal;
+}
+
+.participantes-container label input[type="checkbox"] {
+  margin: 0;
+}
+
+  </style>
+</head>
+<body>
+  <h1>Detalhes da Despesa</h1>
+  <div id="detalhes">A carregar...</div>
+
+  <!-- 🔗 Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+
+  <!-- 🔧 Firebase config externa -->
+  <script src="firebase-config.js"></script>
+
+  <script>
+
+    // 📌 Obter parâmetros da URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const expenseId = urlParams.get('id');
+    const groupId = urlParams.get('groupId');
+
+    async function getNome(uid) {
+      const userDoc = await db.collection("users").doc(uid).get();
+      if (userDoc.exists) {
+        const data = userDoc.data();
+        return data.nickname || data.email || uid;
+      }
+      return uid;
+    }
+
+async function carregarDetalhes() {
+  try {
+    const user = firebase.auth().currentUser;
+    const docRef = db.collection("groups").doc(groupId).collection("expenses").doc(expenseId);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      document.getElementById('detalhes').innerText = 'Despesa não encontrada.';
+      return;
+    }
+
+    const d = doc.data();
+    const pagadorNome = await getNome(d.paidBy);
+    const participantes = await Promise.all(d.splitBetween.map(uid => getNome(uid)));
+    const dataHora = new Date(d.timestamp?.toDate?.() ?? d.timestamp).toLocaleString('pt-PT');
+
+    // Obter membros do grupo (para possível adição à despesa)
+    const grupoDoc = await db.collection("groups").doc(groupId).get();
+    const grupoData = grupoDoc.data();
+    const todosMembros = grupoData.members || [];
+
+const checkboxes = (await Promise.all(todosMembros.map(async uid => {
+  //if (uid === d.paidBy) return null;
+  const nome = await getNome(uid);
+  const checked = d.splitBetween.includes(uid) ? 'checked' : '';
+  return `<label><input type="checkbox" name="participantes" value="${uid}" ${checked}> ${nome}</label>`;
+}))).filter(Boolean).join('');
+
+
+    const podeEditar = user.uid === d.paidBy;
+
+    if (podeEditar) {
+      document.getElementById('detalhes').innerHTML = `
+        <form id="editarForm">
+          <label>Título:
+            <input type="text" id="titulo" value="${d.title}" />
+          </label>
+          <label>Valor (€):
+            <input type="number" step="0.01" id="valor" value="${d.amount}" />
+          </label>
+          <p><strong>Pago por:</strong> ${pagadorNome}</p>
+            <p><strong>Participantes:</strong></p>
+<div class="participantes-container">
+  ${checkboxes}
+</div>
+          <p><strong>Data:</strong> ${dataHora}</p>
+
+          <button type="submit">💾 Guardar alterações</button>
+          <button type="button" onclick="apagarDespesa()">🗑️ Apagar despesa</button>
+        </form>
+        <br><button onclick="history.back()">⬅️ Voltar</button>
+      `;
+
+      // Guardar alterações
+      document.getElementById('editarForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const novoTitulo = document.getElementById('titulo').value;
+        const novoValor = parseFloat(document.getElementById('valor').value);
+        const novosParticipantes = Array.from(document.querySelectorAll('input[name="participantes"]:checked')).map(i => i.value);
+        if (!novosParticipantes.includes(d.paidBy)) {
+          novosParticipantes.push(d.paidBy); // garantir que o pagador está sempre incluído
+        }
+
+        await docRef.update({
+          title: novoTitulo,
+          amount: novoValor,
+          splitBetween: novosParticipantes
+        });
+
+        alert('Despesa atualizada!');
+        location.reload();
+      });
+
+    } else {
+      // Mostrar apenas leitura
+      document.getElementById('detalhes').innerHTML = `
+        <p><strong>Título:</strong> ${d.title}</p>
+        <p><strong>Valor:</strong> €${d.amount.toFixed(2)}</p>
+        <p><strong>Pago por:</strong> ${pagadorNome}</p>
+        <p><strong>Dividido entre:</strong> ${participantes.join(', ')}</p>
+        <p><strong>Data:</strong> ${dataHora}</p>
+        <br><button onclick="history.back()">⬅️ Voltar</button>
+      `;
+    }
+
+  } catch (err) {
+    console.error("Erro ao carregar detalhes:", err);
+    document.getElementById('detalhes').innerText = 'Erro ao carregar a despesa.';
+  }
+}
+
+
+    async function apagarDespesa() {
+      const confirmar = confirm("Tens a certeza que queres apagar esta despesa?");
+      if (!confirmar) return;
+
+      try {
+        await db.collection("groups").doc(groupId).collection("expenses").doc(expenseId).delete();
+        alert('Despesa apagada com sucesso!');
+        window.location.href = 'index.html'; // Altera se tiveres outra página principal
+      } catch (err) {
+        console.error("Erro ao apagar:", err);
+        alert("Erro ao apagar a despesa.");
+      }
+    }
+
+firebase.auth().onAuthStateChanged((user) => {
+  if (user) {
+    console.log("Utilizador autenticado:", user.uid);
+    carregarDetalhes();
+  } else {
+    alert("Tens de iniciar sessão para ver esta despesa.");
+    window.location.href = 'login.html'; // Ou outra página de login
+  }
+});
+  </script>
+</body>
+</html>
