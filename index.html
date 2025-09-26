@@ -1,88 +1,163 @@
 <!DOCTYPE html>
-<html lang="pt">
-<!DOCTYPE html>
-<html lang="pt">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Login Firebase</title>
-  <link rel="stylesheet" href="style.css"/>
+<html lang="en">
 
-  <!-- Firebase SDKs -->
+<head>
+  <meta charset="utf-8">
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <title>ZecaWise</title>
+  <meta name="description" content="">
+  <meta name="keywords" content="">
+
+  <!-- Favicons -->
+  <link href="assets/img/favicon.png" rel="icon">
+  <link href="assets/img/apple-touch-icon.png" rel="apple-touch-icon">
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com" rel="preconnect">
+  <link href="https://fonts.gstatic.com" rel="preconnect" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&family=Noto+Sans:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Questrial:wght@400&display=swap" rel="stylesheet">
+
+  <!-- Vendor CSS Files -->
+  <link href="assets/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+  <link href="assets/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
+  <link href="assets/vendor/aos/aos.css" rel="stylesheet">
+  <link href="assets/vendor/glightbox/css/glightbox.min.css" rel="stylesheet">
+  <link href="assets/vendor/swiper/swiper-bundle.min.css" rel="stylesheet">
+
+  <!-- Main CSS File -->
+  <link href="assets/css/main.css" rel="stylesheet">
+
+  <!-- =======================================================
+  * Template Name: EasyFolio
+  * Template URL: https://bootstrapmade.com/easyfolio-bootstrap-portfolio-template/
+  * Updated: Feb 21 2025 with Bootstrap v5.3.3
+  * Author: BootstrapMade.com
+  * License: https://bootstrapmade.com/license/
+  ======================================================== -->
+</head>
+
+<body class="index-page">
+
+  <header id="header" class="header d-flex align-items-center sticky-top">
+    <div class="header-container container-fluid container-xl position-relative d-flex align-items-center justify-content-between">
+
+      <a href="dashboard.html" class="logo d-flex align-items-center me-auto me-xl-0">
+        <!-- Uncomment the line below if you also wish to use an image logo -->
+        <!-- <img src="assets/img/logo.webp" alt=""> -->
+        <h1 class="sitename">ZecaWise</h1>
+      </a>
+
+    </div>
+  </header>
+
+  <main class="main">
+
+    <!-- Hero Section -->
+    <section id="hero" class="hero section">
+
+      <div class="container" data-aos="fade-up" data-aos-delay="100">
+
+        <div class="row align-items-center content">
+          <div class="col-lg-6" data-aos="fade-up" data-aos-delay="200">
+            <h2>Isto tem de ser Rasca porque ninguem me paga o suficiente</h2>
+            <p class="lead">Querem adicionar uma despesa ou realizar um pagamento?</p>
+            
+         <!-- Botões -->
+        <div class="d-flex gap-2 mt-3">
+          <a href="https://forms.gle/XkZiBDDG1VeYXyED7" class="btn btn-primary" target="_blank" rel="noopener noreferrer">Adicionar Despesa</a>
+          <a href="https://forms.gle/dGn3wsJSZx4gfrRs9" class="btn btn-secondary" target="_blank" rel="noopener noreferrer">Realizar Pagamento</a>
+        </div>           
+
+  <!--
+            
+              //<ul id="group-list"></ul>
+  <h4>Criar novo grupo:</h4>
+  <input type="text" id="new-group-name" placeholder="Nome do grupo" />
+  <button onclick="createGroup()">Criar</button>
+
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-
-  <!-- Configuração Firebase -->
   <script src="firebase-config.js"></script>
-</head>
 
-<body>
-  <h2 id="form-title">Login</h2>
-
-  <div id="auth-form">
-    <input type="email" id="email" placeholder="Email" />
-    <input type="password" id="password" placeholder="Password" />
-    <br/>
-    <button id="submit-btn">Login</button>
-    <p id="toggle-form">
-      Ainda não tens conta?  <a href="#" onclick="toggleForm()">Registar</a>
-    </p>
-  </div>
-
-  <p id="message" style="color: red;"></p>
-
-  <!-- Firebase SDKs -->
-  <!--<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
--->
-
-  <!-- Firebase config -->
-<!--  <script src="firebase-config.js"></script>-->
-
-  <!-- Script logic -->
-  <script> 
+  <script>
     const auth = firebase.auth();
+    const groupList = document.getElementById("group-list");
 
-    let isLogin = true;
+    auth.onAuthStateChanged(user => {
+      if (!user) {
+        window.location.href = "index.html";
+        return;
+      }
 
-    const emailInput = document.getElementById("email");
-    const passwordInput = document.getElementById("password");
-    const submitBtn = document.getElementById("submit-btn");
-    const formTitle = document.getElementById("form-title");
-    const toggleText = document.getElementById("toggle-form");
-    const message = document.getElementById("message");
+      // Obter grupos do utilizador
+      db.collection("groups").where("members", "array-contains", user.uid)
+        .onSnapshot(snapshot => {
+          groupList.innerHTML = "";
+          snapshot.forEach(doc => {
+            const group = doc.data();
+            const li = document.createElement("li");
+            const btn = document.createElement("button");
+            btn.textContent = group.name;
+            btn.onclick = () => {
+              localStorage.setItem("currentGroupId", doc.id);
+              window.location.href = "group.html";
+            };
+            li.appendChild(btn);
+            groupList.appendChild(li);
+          });
+        });
+    });
 
-    submitBtn.onclick = () => {
-      const email = emailInput.value;
-      const password = passwordInput.value;
-      message.textContent = "";
+    function createGroup() {
+      const name = document.getElementById("new-group-name").value;
+      const user = auth.currentUser;
+      if (!name) return alert("Insere o nome do grupo");
 
-      if (isLogin) {
-            auth.signInWithEmailAndPassword(email, password)
-              .then(() => window.location.href = "dashboard.html")
-              .catch(error => message.textContent = error.message);
-          } else {
-            auth.createUserWithEmailAndPassword(email, password)
-            .then((cred) => {
-                return db.collection("users").doc(cred.user.uid).set({
-                email: email,
-                //nickname: nicknameInput.value || ""  // se tiveres um campo de nickname
-                });
-            })
-            .then(() => window.location.href = "dashboard.html")
-            .catch(error => message.textContent = error.message);
-          }
-        };
-
-    function toggleForm() {
-      isLogin = !isLogin;
-      formTitle.textContent = isLogin ? "Login" : "Registo";
-      submitBtn.textContent = isLogin ? "Login" : "Registar";
-      toggleText.innerHTML = isLogin
-        ? 'Ainda não tens conta? <a href="#" onclick="toggleForm()">Registar</a>'
-        : 'Já tens conta? <a href="#" onclick="toggleForm()">Login</a>';
+      db.collection("groups").add({
+        name,
+        members: [user.uid]
+      }).then(() => {
+        document.getElementById("new-group-name").value = "";
+      });
     }
-  </script>
+  </script>-->
+          </div>
+          <div class="col-lg-6">
+            <div class="hero-image">
+              <img src="assets/img/profile/Gon.jpeg" alt="Portfolio Hero Image" class="img-fluid" data-aos="zoom-out" data-aos-delay="300">
+              <div class="shape-1"></div>
+              <div class="shape-2"></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+    <!-- /Hero Section -->
+
+  </main>
+
+  <footer id="footer" class="footer">
+  </footer>
+
+  <!-- Scroll Top -->
+  <a href="#" id="scroll-top" class="scroll-top d-flex align-items-center justify-content-center"><i class="bi bi-arrow-up-short"></i></a>
+
+  <!-- Vendor JS Files -->
+  <script src="assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+  <script src="assets/vendor/php-email-form/validate.js"></script>
+  <script src="assets/vendor/aos/aos.js"></script>
+  <script src="assets/vendor/waypoints/noframework.waypoints.js"></script>
+  <script src="assets/vendor/glightbox/js/glightbox.min.js"></script>
+  <script src="assets/vendor/imagesloaded/imagesloaded.pkgd.min.js"></script>
+  <script src="assets/vendor/isotope-layout/isotope.pkgd.min.js"></script>
+  <script src="assets/vendor/swiper/swiper-bundle.min.js"></script>
+
+  <!-- Main JS File -->
+  <script src="assets/js/main.js"></script>
+
 </body>
+
 </html>

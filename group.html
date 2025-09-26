@@ -38,15 +38,17 @@
 
 <body class="index-page">
 
+
   <header id="header" class="header d-flex align-items-center fixed-top">
     <div class="container-fluid container-xl position-relative d-flex align-items-center justify-content-between">
 
-      <a href="group.html" class="logo d-flex align-items-center">
-        <!-- Uncomment the line below if you also wish to use an image logo -->
-        <!-- <img src="group/assets/img/logo.webp" alt=""> -->
-        <i class="bi bi-buildings"></i>
-        <h1 class="sitename">Grupos</h1>
-      </a>
+<nav>
+  <ul>
+    <li><a href="group.html">Despesas</a></li>
+    <li><a href="pagamentos.html">Pagamentos</a></li>
+  </ul>
+</nav>
+
 
       <!--<nav id="navmenu" class="navmenu">
         <ul>
@@ -100,7 +102,6 @@
 
     </div>
   </header>
-
   <main class="main">
 
     <!-- Hero Section -->
@@ -160,6 +161,7 @@
     const membersList = document.getElementById("members-list");
     const membersCheckboxes = document.getElementById("members-checkboxes");
 
+    
     let groupMembers = [];
 
     auth.onAuthStateChanged(user => {

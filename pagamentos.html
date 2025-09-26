@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pagamentos</title>
+  <link rel="stylesheet" href="estilos.css" />
+  <!-- Podes incluir aqui as tuas folhas de estilo -->
+</head>
+<body>
+
+  <nav>
+    <ul>
+      <li><a href="despesas.html">Despesas</a></li>
+      <li><a href="pagamentos.html" class="active">Pagamentos</a></li>
+    </ul>
+  </nav>
+
+  <main>
+    <h1>Registo de Pagamentos</h1>
+    <p>Aqui podes visualizar e adicionar pagamentos entre os membros do grupo.</p>
+
+    <section>
+      <h2>Pagamentos Registados</h2>
+      <ul id="payments-list"></ul>
+    </section>
+
+    <section>
+      <h2>Adicionar Novo Pagamento</h2>
+      <form id="payment-form">
+        <label for="paid-by">Quem pagou:</label><br />
+        <select id="paid-by" required></select><br /><br />
+
+        <label for="paid-to">Quem recebeu o pagamento:</label><br />
+        <select id="paid-to" required></select><br /><br />
+
+        <label for="payment-amount">Valor (€):</label><br />
+        <input type="number" id="payment-amount" min="0.01" step="0.01" required /><br /><br />
+
+        <label for="payment-note">Nota (opcional):</label><br />
+        <input type="text" id="payment-note" maxlength="100" /><br /><br />
+
+        <button type="submit">Adicionar Pagamento</button>
+      </form>
+    </section>
+  </main>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script> <!-- O teu ficheiro de configuração -->
+
+  <script>
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    const groupId = localStorage.getItem("currentGroupId");
+    const paidBySelect = document.getElementById("paid-by");
+    const paidToSelect = document.getElementById("paid-to");
+    const paymentsList = document.getElementById("payments-list");
+    const paymentForm = document.getElementById("payment-form");
+
+    let groupMembers = [];
+
+    auth.onAuthStateChanged(user => {
+      if (!user) {
+        window.location.href = "index.html";
+        return;
+      }
+
+      loadGroupMembers();
+      listenPayments();
+    });
+
+    function loadGroupMembers() {
+      const groupRef = db.collection("groups").doc(groupId);
+
+      groupRef.get().then(doc => {
+        if (!doc.exists) {
+          alert("Grupo não encontrado.");
+          return;
+        }
+
+        const group = doc.data();
+        groupMembers = group.members || [];
+
+        paidBySelect.innerHTML = "";
+        paidToSelect.innerHTML = "";
+
+        // Buscar dados dos membros para preencher dropdowns
+        groupMembers.forEach(uid => {
+          db.collection("users").doc(uid).get().then(userDoc => {
+            if (!userDoc.exists) return;
+
+            const userData = userDoc.data();
+            const displayName = userData.nickname || userData.email;
+
+            const option1 = document.createElement("option");
+            option1.value = uid;
+            option1.textContent = displayName;
+            paidBySelect.appendChild(option1);
+
+            const option2 = document.createElement("option");
+            option2.value = uid;
+            option2.textContent = displayName;
+            paidToSelect.appendChild(option2);
+          });
+        });
+      });
+    }
+
+    function listenPayments() {
+      db.collection("groups").doc(groupId).collection("payments")
+        .orderBy("timestamp", "desc")
+        .onSnapshot(snapshot => {
+          paymentsList.innerHTML = "";
+
+          snapshot.forEach(doc => {
+            const payment = doc.data();
+
+            // Buscar nomes dos utilizadores
+            Promise.all([
+              db.collection("users").doc(payment.paidBy).get(),
+              db.collection("users").doc(payment.paidTo).get()
+            ]).then(([payerDoc, receiverDoc]) => {
+              const payer = payerDoc.exists ? (payerDoc.data().nickname || payerDoc.data().email) : "Desconhecido";
+              const receiver = receiverDoc.exists ? (receiverDoc.data().nickname || receiverDoc.data().email) : "Desconhecido";
+
+              const li = document.createElement("li");
+              li.textContent = `${payer} pagou €${payment.amount.toFixed(2)} a ${receiver}` + 
+                (payment.note ? ` (${payment.note})` : "");
+              paymentsList.appendChild(li);
+            });
+          });
+        });
+    }
+
+    paymentForm.addEventListener("submit", e => {
+      e.preventDefault();
+
+      const paidBy = paidBySelect.value;
+      const paidTo = paidToSelect.value;
+      const amount = parseFloat(document.getElementById("payment-amount").value);
+      const note = document.getElementById("payment-note").value.trim();
+
+      if (!paidBy || !paidTo || paidBy === paidTo) {
+        alert("Por favor, escolhe pessoas diferentes para quem pagou e quem recebeu.");
+        return;
+      }
+
+      if (amount <= 0 || isNaN(amount)) {
+        alert("Introduz um valor válido para o pagamento.");
+        return;
+      }
+
+      db.collection("groups").doc(groupId).collection("payments").add({
+        paidBy,
+        paidTo,
+        amount,
+        note,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      }).then(() => {
+        paymentForm.reset();
+      }).catch(err => {
+        alert("Erro ao adicionar pagamento: " + err.message);
+      });
+    });
+  </script>
+</body>
+</html>
